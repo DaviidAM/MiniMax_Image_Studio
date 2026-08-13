@@ -53,8 +53,7 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const doSubmit = () => {
     setTouched(true);
     if (!prompt.trim()) return;
     onGenerate({
@@ -65,6 +64,11 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
       n,
       references: files,
     });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    doSubmit();
   };
 
   return (
@@ -226,9 +230,10 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
 
       {/* Generate */}
       <button
-        type="submit"
+        type="button"
         className="btn-generate"
         disabled={isLoading}
+        onClick={doSubmit}
       >
         <Zap size={16} />
         {isLoading ? "Generating…" : "Generate Image"}
