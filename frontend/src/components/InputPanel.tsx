@@ -31,6 +31,13 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
   const [touched, setTouched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Always-refreshed mirror of files to avoid stale closure in doSubmit.
+  // doSubmit is passed as an onClick callback and captures `files` at render time;
+  // a React state update may not be visible inside that closure until the next render.
+  // filesRef.current is always the latest value.
+  const filesRef = useRef<File[]>([]);
+  filesRef.current = files;
+
   const hasError = touched && !prompt.trim();
 
   const handleFiles = useCallback((incoming: FileList | null) => {
@@ -67,7 +74,7 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
       aspect_ratio: aspect,
       seed: seed === "" ? undefined : Number(seed),
       n,
-      references: files,
+      references: filesRef.current,
     });
   };
 
