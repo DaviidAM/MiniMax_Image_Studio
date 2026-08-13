@@ -1,7 +1,9 @@
 "use client";
 
-import { AlertCircle, ImageOff, X } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, ImageOff, X, Maximize2 } from "lucide-react";
 import type { GenerationStatus } from "@/app/page";
+import Lightbox from "./Lightbox";
 
 interface Props {
   imageUrls: string[];
@@ -28,13 +30,11 @@ function SkeletonGrid({ count }: { count: number }) {
 function StatusToast({ status, onDismissError }: { status: GenerationStatus; onDismissError?: () => void }) {
   const isError = status.phase === "error";
   const isSuccess = status.phase === "success";
-  const isProgress = status.phase === "sending" || status.phase === "processing";
 
   if (status.phase === "idle") return null;
 
   return (
     <div className={`status-toast ${isError ? "status-toast--error" : isSuccess ? "status-toast--success" : "status-toast--progress"}`}>
-      {/* Spinner — always show for progress/success; show for error too */}
       <div className="status-toast__spinner" />
       <span className="status-toast__message">
         {status.phase === "sending" && "Sending request to backend..."}
@@ -43,11 +43,7 @@ function StatusToast({ status, onDismissError }: { status: GenerationStatus; onD
         {isError && status.message}
       </span>
       {isError && onDismissError && (
-        <button
-          className="status-toast__dismiss"
-          onClick={onDismissError}
-          aria-label="Dismiss error"
-        >
+        <button className="status-toast__dismiss" onClick={onDismissError} aria-label="Dismiss error">
           <X size={14} />
         </button>
       )}
@@ -56,6 +52,8 @@ function StatusToast({ status, onDismissError }: { status: GenerationStatus; onD
 }
 
 export default function OutputPanel({ imageUrls, prompt, referenceFiles, error, isLoading, status, onDismissError }: Props) {
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
   const showStatusToast = status.phase !== "idle";
 
   if (isLoading && status.phase === "sending") {
@@ -63,9 +61,7 @@ export default function OutputPanel({ imageUrls, prompt, referenceFiles, error, 
       <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
         <StatusToast status={status} onDismissError={onDismissError} />
         <SkeletonGrid count={1} />
-        <div className="prompt-bar">
-          <div className="spinner" style={{ margin: "0 auto" }} />
-        </div>
+        <div className="prompt-bar"><div className="spinner" style={{ margin: "0 auto" }} /></div>
       </div>
     );
   }
@@ -75,9 +71,7 @@ export default function OutputPanel({ imageUrls, prompt, referenceFiles, error, 
       <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
         <StatusToast status={status} onDismissError={onDismissError} />
         <SkeletonGrid count={1} />
-        <div className="prompt-bar">
-          <div className="spinner" style={{ margin: "0 auto" }} />
-        </div>
+        <div className="prompt-bar"><div className="spinner" style={{ margin: "0 auto" }} /></div>
       </div>
     );
   }
@@ -110,18 +104,39 @@ export default function OutputPanel({ imageUrls, prompt, referenceFiles, error, 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
       {showStatusToast && <StatusToast status={status} onDismissError={onDismissError} />}
+
       {/* Gallery */}
       <div className={`gallery-grid ${imageUrls.length > 1 ? "multi" : "single"}`}>
         {imageUrls.map((url, i) => (
-          <div key={i} className="gallery-card">
+          <div
+            key={i}
+            className="gallery-card"
+            onClick={() => setLightboxIndex(i)}
+            role="button"
+            tabIndex={0}
+            aria-label={`View image ${i + 1} fullscreen`}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setLightboxIndex(i); }}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={url} alt={`Generated image ${i + 1}`} />
             <div className="gallery-overlay">
               <span className="gallery-badge">image-01 · #{i + 1}</span>
+              <div className="gallery-expand-icon">
+                <Maximize2 size={16} />
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && (
+        <Lightbox
+          src={imageUrls[lightboxIndex]}
+          alt={`Generated image ${lightboxIndex + 1}`}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
 
       {/* Prompt + references bar */}
       <div className="prompt-bar">
