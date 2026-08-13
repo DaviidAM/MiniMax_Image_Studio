@@ -32,7 +32,7 @@ build-frontend:
 
 # ── test ───────────────────────────────────────────────────────────────────
 test:
-	cd frontend && npm run lint
+	npm --prefix frontend run lint
 
 clean:
 	cd frontend && npm run clean 2>/dev/null || true

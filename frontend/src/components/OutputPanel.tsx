@@ -40,6 +40,7 @@ export default function OutputPanel({ imageUrls, prompt, referenceFiles, error, 
       {/* Images */}
       <div className={`grid gap-3 ${imageUrls.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
         {imageUrls.map((url, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             key={i}
             src={url}
