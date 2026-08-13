@@ -4,7 +4,7 @@ const nextConfig = {
     return [
       {
         source: '/api/generate',
-        destination: 'http://localhost:8000/generate',
+        destination: 'http://backend:8000/generate',
       },
     ];
   },
