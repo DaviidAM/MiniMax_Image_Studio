@@ -141,7 +141,20 @@ async def generate(
     result: dict = {"model": model, "aspect_ratio": aspect_ratio, "n": n}
 
     if has_refs:
-        result["image_urls"] = image_urls or []
+        # Fetch image URLs and convert to base64 data URLs to avoid CORS/ expiry issues
+        # when the browser loads them as <img src>.
+        data_urls: list[str] = []
+        for url in (image_urls or []):
+            try:
+                img_resp = await client.get(url)
+                img_resp.raise_for_status()
+                b64 = base64.b64encode(img_resp.content).decode("ascii")
+                mime = img_resp.headers.get("content-type", "image/jpeg")
+                data_urls.append(f"data:{mime};base64,{b64}")
+            except Exception:
+                # If fetch fails, pass the raw URL as a fallback (browser will handle CORS)
+                data_urls.append(url)
+        result["image_urls"] = data_urls
     else:
         result["image_base64"] = images_b64 or []
 
