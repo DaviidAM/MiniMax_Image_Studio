@@ -16,42 +16,20 @@ export async function generateImages(
 ): Promise<GenerationResult> {
   const { prompt, model = "image-01", aspect_ratio = "16:9", seed, n = 1, references = [] } = opts;
 
-  const hasReferences = references.length > 0;
-
-  let resp: Response;
-
-  if (hasReferences) {
-    const form = new FormData();
-    form.append("prompt", prompt);
-    form.append("model", model);
-    form.append("aspect_ratio", aspect_ratio);
-    form.append("n", String(n));
-    if (seed !== undefined) {
-      form.append("seed", String(seed));
-    }
-    for (const file of references) {
-      form.append("reference_images", file);
-    }
-
-    resp = await fetch("/api/generate", { method: "POST", body: form });
-  } else {
-    const payload: Record<string, unknown> = {
-      model,
-      prompt,
-      aspect_ratio,
-      n,
-      response_format: "url",
-    };
-    if (seed !== undefined) {
-      payload.seed = seed;
-    }
-
-    resp = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+  // Backend only accepts multipart/form-data. Always use FormData.
+  const form = new FormData();
+  form.append("prompt", prompt);
+  form.append("model", model);
+  form.append("aspect_ratio", aspect_ratio);
+  form.append("n", String(n));
+  if (seed !== undefined) {
+    form.append("seed", String(seed));
   }
+  for (const file of references) {
+    form.append("reference_images", file);
+  }
+
+  const resp = await fetch("/api/generate", { method: "POST", body: form });
 
   if (!resp.ok) {
     let msg = `HTTP ${resp.status}`;
@@ -65,12 +43,12 @@ export async function generateImages(
   }
 
   const body = await resp.json();
-  const data = body.data ?? {};
 
-  // API returns image_urls when references provided, image_base64 otherwise
+  // Backend returns image_urls when references provided, image_base64 otherwise.
+  // No nested "data" wrapper — fields are at the top level.
   const imageUrls: string[] =
-    data.image_urls ??
-    (data.image_base64 ?? []).map((b64: string) => `data:image/jpeg;base64,${b64}`);
+    body.image_urls ??
+    (body.image_base64 ?? []).map((b64: string) => `data:image/jpeg;base64,${b64}`);
 
   return { imageUrls };
 }

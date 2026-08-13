@@ -125,7 +125,7 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
             type="file"
             accept="image/*"
             multiple
-            className="hidden"
+            style={{ position: 'absolute', left: '-9999px' }}
             onChange={(e) => handleFiles(e.target.files)}
             disabled={isLoading}
           />
