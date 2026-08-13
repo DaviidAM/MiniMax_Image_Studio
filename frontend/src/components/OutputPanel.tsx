@@ -1,5 +1,7 @@
 "use client";
 
+import { ImageIcon, AlertCircle, ImageOff } from "lucide-react";
+
 interface Props {
   imageUrls: string[];
   prompt: string;
@@ -8,63 +10,74 @@ interface Props {
   isLoading: boolean;
 }
 
+function SkeletonGrid({ count }: { count: number }) {
+  return (
+    <div className={`skeleton-grid ${count > 1 ? "multi" : "single"}`}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="skeleton-card">
+          <div className="skeleton" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function OutputPanel({ imageUrls, prompt, referenceFiles, error, isLoading }: Props) {
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-500">
-        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <p>Generating your image(s)...</p>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+        {/* Skeleton images */}
+        <SkeletonGrid count={1} />
+        {/* Prompt bar skeleton */}
+        <div className="prompt-bar">
+          <div className="spinner" style={{ margin: "0 auto" }} />
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-2 text-red-600">
-        <p className="font-medium">Error</p>
-        <p className="text-sm text-center text-red-500">{error}</p>
+      <div className="error-state">
+        <AlertCircle size={36} className="output-state-icon" />
+        <p>Generation Failed</p>
+        <p>{error}</p>
       </div>
     );
   }
 
   if (imageUrls.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-gray-400">
+      <div className="output-state">
+        <ImageOff size={48} className="output-state-icon" />
         <p>Your generated image(s) will appear here</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4 h-full overflow-auto">
-      {/* Images */}
-      <div className={`grid gap-3 ${imageUrls.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+      {/* Gallery */}
+      <div className={`gallery-grid ${imageUrls.length > 1 ? "multi" : "single"}`}>
         {imageUrls.map((url, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={i}
-            src={url}
-            alt={`Generated image ${i + 1}`}
-            className="w-full rounded border object-contain"
-            style={{ maxHeight: "60vh" }}
-          />
+          <div key={i} className="gallery-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={url} alt={`Generated image ${i + 1}`} />
+            <div className="gallery-overlay">
+              <span className="gallery-badge">image-01 · #{i + 1}</span>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Prompt + references used */}
-      <div className="text-sm text-gray-600 border-t pt-3">
-        <p className="font-medium text-gray-800 mb-1">Prompt</p>
-        <p className="whitespace-pre-wrap">{prompt}</p>
-
+      {/* Prompt + references bar */}
+      <div className="prompt-bar">
+        <p className="prompt-bar-label">Prompt</p>
+        <p className="prompt-bar-text">{prompt}</p>
         {referenceFiles.length > 0 && (
-          <>
-            <p className="font-medium text-gray-800 mt-3 mb-1">Reference Images</p>
-            <ul className="flex flex-wrap gap-2">
-              {referenceFiles.map((f, i) => (
-                <li key={i} className="text-xs bg-gray-100 rounded px-2 py-1">{f.name}</li>
-              ))}
-            </ul>
-          </>
+          <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
+            {referenceFiles.length} reference image{referenceFiles.length > 1 ? "s" : ""} used
+          </p>
         )}
       </div>
     </div>
