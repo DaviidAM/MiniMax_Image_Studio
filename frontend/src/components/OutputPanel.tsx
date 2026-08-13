@@ -1,6 +1,7 @@
 "use client";
 
-import { ImageIcon, AlertCircle, ImageOff } from "lucide-react";
+import { AlertCircle, ImageOff, X } from "lucide-react";
+import type { GenerationStatus } from "@/app/page";
 
 interface Props {
   imageUrls: string[];
@@ -8,6 +9,8 @@ interface Props {
   referenceFiles: File[];
   error: string | null;
   isLoading: boolean;
+  status: GenerationStatus;
+  onDismissError?: () => void;
 }
 
 function SkeletonGrid({ count }: { count: number }) {
@@ -22,13 +25,44 @@ function SkeletonGrid({ count }: { count: number }) {
   );
 }
 
-export default function OutputPanel({ imageUrls, prompt, referenceFiles, error, isLoading }: Props) {
-  if (isLoading) {
+function StatusToast({ status, onDismissError }: { status: GenerationStatus; onDismissError?: () => void }) {
+  const isError = status.phase === "error";
+  const isSuccess = status.phase === "success";
+  const isProgress = status.phase === "sending" || status.phase === "processing";
+
+  if (status.phase === "idle") return null;
+
+  return (
+    <div className={`status-toast ${isError ? "status-toast--error" : isSuccess ? "status-toast--success" : "status-toast--progress"}`}>
+      {/* Spinner — always show for progress/success; show for error too */}
+      <div className="status-toast__spinner" />
+      <span className="status-toast__message">
+        {status.phase === "sending" && "Sending request to backend..."}
+        {status.phase === "processing" && "Backend processing image..."}
+        {status.phase === "success" && "Image ready!"}
+        {isError && status.message}
+      </span>
+      {isError && onDismissError && (
+        <button
+          className="status-toast__dismiss"
+          onClick={onDismissError}
+          aria-label="Dismiss error"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function OutputPanel({ imageUrls, prompt, referenceFiles, error, isLoading, status, onDismissError }: Props) {
+  const showStatusToast = status.phase !== "idle";
+
+  if (isLoading && status.phase === "sending") {
     return (
       <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
-        {/* Skeleton images */}
+        <StatusToast status={status} onDismissError={onDismissError} />
         <SkeletonGrid count={1} />
-        {/* Prompt bar skeleton */}
         <div className="prompt-bar">
           <div className="spinner" style={{ margin: "0 auto" }} />
         </div>
@@ -36,27 +70,46 @@ export default function OutputPanel({ imageUrls, prompt, referenceFiles, error, 
     );
   }
 
-  if (error) {
+  if (isLoading && status.phase === "processing") {
     return (
-      <div className="error-state">
-        <AlertCircle size={36} className="output-state-icon" />
-        <p>Generation Failed</p>
-        <p>{error}</p>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+        <StatusToast status={status} onDismissError={onDismissError} />
+        <SkeletonGrid count={1} />
+        <div className="prompt-bar">
+          <div className="spinner" style={{ margin: "0 auto" }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || status.phase === "error") {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+        {showStatusToast && <StatusToast status={status} onDismissError={onDismissError} />}
+        <div className="error-state">
+          <AlertCircle size={36} className="output-state-icon" />
+          <p>Generation Failed</p>
+          <p>{error ?? (status.phase === "error" ? status.message : "")}</p>
+        </div>
       </div>
     );
   }
 
   if (imageUrls.length === 0) {
     return (
-      <div className="output-state">
-        <ImageOff size={48} className="output-state-icon" />
-        <p>Your generated image(s) will appear here</p>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+        {showStatusToast && <StatusToast status={status} onDismissError={onDismissError} />}
+        <div className="output-state">
+          <ImageOff size={48} className="output-state-icon" />
+          <p>Your generated image(s) will appear here</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+      {showStatusToast && <StatusToast status={status} onDismissError={onDismissError} />}
       {/* Gallery */}
       <div className={`gallery-grid ${imageUrls.length > 1 ? "multi" : "single"}`}>
         {imageUrls.map((url, i) => (
