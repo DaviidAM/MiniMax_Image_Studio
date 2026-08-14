@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { AlertCircle, ImageOff, X, Maximize2, Trash2, Copy, Check } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { AlertCircle, ImageOff, Trash2, Copy, Check, Download } from "lucide-react";
 import type { Generation } from "@/app/page";
 import Lightbox from "./Lightbox";
+import { downloadImage } from "@/lib/downloadUtils";
 
 interface Props {
   generations: Generation[];
@@ -27,26 +28,35 @@ function CopyButton({ text }: { text: string }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <button
-      className="copy-btn"
-      onClick={handleCopy}
-      aria-label="Copy prompt"
-      title="Copy prompt"
-    >
+    <button className="copy-btn" onClick={handleCopy} aria-label="Copy prompt" title="Copy prompt">
       {copied ? <Check size={12} /> : <Copy size={12} />}
     </button>
   );
 }
 
-export default function OutputPanel({
-  generations,
-  onDismissError,
-  onDeleteGeneration,
-}: Props) {
+export default function OutputPanel({ generations, onDismissError, onDeleteGeneration }: Props) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-
-  // Flatten all imageUrls for lightbox navigation
   const allImageUrls = generations.flatMap((g) => g.imageUrls);
+
+  // FIX 1: Browser back button
+  useEffect(() => {
+    if (lightboxIdx !== null) {
+      window.history.pushState({ lightboxOpen: true }, "");
+    }
+    const handlePop = (e: PopStateEvent) => {
+      if (lightboxIdx !== null) {
+        e.preventDefault();
+        setLightboxIdx(null);
+      }
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, [lightboxIdx]);
+
+  const openLightbox = useCallback((idx: number) => setLightboxIdx(idx), []);
+  const closeLightbox = useCallback(() => setLightboxIdx(null), []);
+  const goPrev = useCallback(() => setLightboxIdx((i) => (i !== null && i > 0 ? i - 1 : i)), []);
+  const goNext = useCallback(() => setLightboxIdx((i) => (i !== null && i < allImageUrls.length - 1 ? i + 1 : i)), [allImageUrls.length]);
 
   if (generations.length === 0) {
     return (
@@ -64,12 +74,8 @@ export default function OutputPanel({
           const hasImages = gen.imageUrls.length > 0;
           const hasError = gen.error || gen.status.phase === "error";
           const isLoading = gen.isLoading;
-          const timestamp = new Date(gen.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+          const timestamp = new Date(gen.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-          // Find global image index for lightbox
           let globalImgStart = 0;
           for (let gi = 0; gi < index; gi++) {
             globalImgStart += generations[gi].imageUrls.length;
@@ -82,18 +88,16 @@ export default function OutputPanel({
                   <span className="generation-index">#{index + 1}</span>
                   <span className="generation-timestamp">{timestamp}</span>
                   {gen.referenceFiles.length > 0 && (
-                    <span className="generation-refs">
-                      · {gen.referenceFiles.length} ref
-                    </span>
+                    <span className="generation-refs">· {gen.referenceFiles.length} ref</span>
                   )}
                 </div>
                 <div className="generation-controls">
-                  <button
-                    className="generation-delete"
-                    onClick={() => onDeleteGeneration(gen.id)}
-                    aria-label="Delete"
-                    title="Delete"
-                  >
+                  {hasImages && !isLoading && (
+                    <button className="generation-download" onClick={() => downloadImage(gen.imageUrls[0], gen.prompt)} aria-label="Download image" title="Download image">
+                      <Download size={14} />
+                    </button>
+                  )}
+                  <button className="generation-delete" onClick={() => onDeleteGeneration(gen.id)} aria-label="Delete" title="Delete">
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -111,43 +115,18 @@ export default function OutputPanel({
                   <div className="error-state">
                     <AlertCircle size={28} className="output-state-icon" />
                     <p>Generation Failed</p>
-                    <p>
-                      {gen.status.phase === "error" && "message" in gen.status
-                        ? gen.status.message
-                        : gen.error}
-                    </p>
-                    <button
-                      onClick={() => onDismissError(gen.id)}
-                      className="error-dismiss-btn"
-                    >
-                      Dismiss
-                    </button>
+                    <p>{gen.status.phase === "error" && "message" in gen.status ? gen.status.message : gen.error}</p>
+                    <button onClick={() => onDismissError(gen.id)} className="error-dismiss-btn">Dismiss</button>
                   </div>
                 )}
 
                 {hasImages && !isLoading && (
                   <div className="gallery-grid single">
                     {gen.imageUrls.map((url, i) => (
-                      <div
-                        key={i}
-                        className="gallery-card"
-                        onClick={() => setLightboxIdx(globalImgStart + i)}
-                        role="button"
-                        tabIndex={0}
-                        aria-label="View fullscreen"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            setLightboxIdx(globalImgStart + i);
-                          }
-                        }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt={`Generated ${i + 1}`} />
+                      <div key={i} className="gallery-card" onClick={() => openLightbox(globalImgStart + i)} role="button" tabIndex={0} aria-label="View fullscreen" onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openLightbox(globalImgStart + i); }}>
+                        <img src={url} alt={"Generated " + (i + 1)} />
                         <div className="gallery-overlay">
                           <span className="gallery-badge">image-01</span>
-                          <div className="gallery-expand-icon">
-                            <Maximize2 size={16} />
-                          </div>
                         </div>
                       </div>
                     ))}
@@ -155,9 +134,7 @@ export default function OutputPanel({
                 )}
 
                 {!isLoading && !hasImages && !hasError && (
-                  <div className="empty-state">
-                    <p>No images generated</p>
-                  </div>
+                  <div className="empty-state"><p>No images generated</p></div>
                 )}
               </div>
             </div>
@@ -168,8 +145,12 @@ export default function OutputPanel({
       {lightboxIdx !== null && allImageUrls[lightboxIdx] && (
         <Lightbox
           src={allImageUrls[lightboxIdx]}
-          alt={`Generated image ${lightboxIdx + 1}`}
-          onClose={() => setLightboxIdx(null)}
+          alt={"Generated image " + (lightboxIdx + 1)}
+          currentIndex={lightboxIdx}
+          totalImages={allImageUrls.length}
+          onClose={closeLightbox}
+          onPrev={goPrev}
+          onNext={goNext}
         />
       )}
     </>

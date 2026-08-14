@@ -1,63 +1,42 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import { X, Download } from "lucide-react";
+import { X, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { downloadImage } from "@/lib/downloadUtils";
 
 interface Props {
   src: string;
   alt?: string;
+  currentIndex: number;
+  totalImages: number;
   onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
 }
 
-async function urlToBlob(href: string): Promise<Blob> {
-  const resp = await fetch(href);
-  if (!resp.ok) throw new Error("Failed to fetch image: " + resp.status);
-  return resp.blob();
-}
-
-async function downloadImage(src: string, _prompt: string) {
-  const timestamp = Date.now();
-  if (src.startsWith("data:")) {
-    const mime = src.split(";")[0].replace("data:", "") || "image/jpeg";
-    const b64 = src.split(",")[1];
-    const binary = atob(b64);
-    const arr = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
-    const blob = new Blob([arr], { type: mime });
-    const filename = "minimax-" + timestamp + ".jpg";
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-  } else {
-    try {
-      const blob = await urlToBlob(src);
-      const filename = "minimax-" + timestamp + ".jpg";
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch {
-      window.open(src, "_blank", "noopener");
-    }
-  }
-}
-
-export default function Lightbox({ src, alt = "Fullscreen image", onClose }: Props) {
+export default function Lightbox({
+  src,
+  alt = "Fullscreen image",
+  currentIndex,
+  totalImages,
+  onClose,
+  onPrev,
+  onNext,
+}: Props) {
   const handleDownload = useCallback(() => { downloadImage(src, alt); }, [src, alt]);
 
+  // Keyboard navigation
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") onPrev();
+      if (e.key === "ArrowRight") onNext();
+    };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, onPrev, onNext]);
 
+  // Lock body scroll
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
@@ -67,8 +46,31 @@ export default function Lightbox({ src, alt = "Fullscreen image", onClose }: Pro
     if (e.target === e.currentTarget) onClose();
   };
 
+  const showArrows = totalImages > 1;
+
   return (
     <div className="lightbox-backdrop" onClick={handleBackdropClick} role="dialog" aria-modal="true" aria-label="Image lightbox">
+      {showArrows && (
+        <>
+          <button
+            className="lightbox-nav lightbox-nav-prev"
+            onClick={onPrev}
+            aria-label="Previous image"
+            disabled={currentIndex === 0}
+          >
+            <ChevronLeft size={32} />
+          </button>
+          <button
+            className="lightbox-nav lightbox-nav-next"
+            onClick={onNext}
+            aria-label="Next image"
+            disabled={currentIndex === totalImages - 1}
+          >
+            <ChevronRight size={32} />
+          </button>
+        </>
+      )}
+
       <div className="lightbox-content">
         <button className="lightbox-close" onClick={onClose} aria-label="Close lightbox">
           <X size={20} />

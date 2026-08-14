@@ -653,6 +653,23 @@ body::before {
   background: rgba(239, 68, 68, 0.1);
 }
 
+.generation-download {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius);
+  transition: color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+}
+
+.generation-download:hover {
+  color: var(--accent-cyan);
+  background: rgba(6, 182, 212, 0.1);
+}
+
 .generation-prompt-row {
   display: flex;
   align-items: flex-start;
@@ -850,6 +867,39 @@ body::before {
   transition: background 0.15s, transform 0.15s;
   z-index: 1001;
 }
+/* Prev/Next navigation arrows */
+.lightbox-nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(26, 26, 46, 0.7);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+  transition: background 0.15s, opacity 0.15s, transform 0.15s;
+  z-index: 1001;
+}
+
+.lightbox-nav:hover {
+  background: rgba(99, 102, 241, 0.4);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.lightbox-nav:disabled {
+  opacity: 0.25;
+  cursor: default;
+  pointer-events: none;
+}
+
+.lightbox-nav-prev { left: 1rem; }
+.lightbox-nav-next { right: 1rem; }
+
 
 .lightbox-close:hover {
   background: rgba(99, 102, 241, 0.3);
@@ -937,4 +987,11 @@ body::before {
     font-size: 0.8rem;
     padding: 0.5rem 1.25rem;
   }
+  .lightbox-nav {
+    width: 36px;
+    height: 36px;
+  }
+  .lightbox-nav-prev { left: 0.5rem; }
+  .lightbox-nav-next { right: 0.5rem; }
+  .lightbox-nav svg { width: 20px; height: 20px; }
 }
