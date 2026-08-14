@@ -172,7 +172,12 @@ function GenerationRow({
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`Generated image ${i + 1}`} />
+                <img
+                  src={url}
+                  alt={`Generated image ${i + 1}`}
+                  onLoad={() => console.log("[OutputPanel] image loaded:", url.slice(0, 50))}
+                  onError={() => console.error("[OutputPanel] image error:", url.slice(0, 50))}
+                />
                 <div className="gallery-overlay">
                   <span className="gallery-badge">
                     image-01 · #{i + 1}
@@ -251,7 +256,7 @@ export default function OutputPanel({
             index={index}
             onDismissError={onDismissError}
             onDelete={onDeleteGeneration}
-            allImageUrls={gen.imageUrls}
+            allImageUrls={allImageUrls}
             setLightboxIndex={setLightboxIndex}
           />
         ))}

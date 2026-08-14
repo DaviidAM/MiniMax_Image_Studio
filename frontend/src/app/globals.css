@@ -474,6 +474,7 @@ body::before {
   position: relative;
   border-radius: var(--radius-lg);
   overflow: hidden;
+  aspect-ratio: 16/9;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   transition: transform 0.2s, box-shadow 0.2s;
