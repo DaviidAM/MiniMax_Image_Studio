@@ -21,9 +21,13 @@ load_dotenv()
 app = FastAPI(title="MiniMax Image Studio Backend")
 
 DEFAULT_URL = "https://api.minimax.io/v1/image_generation"
-SUPPORTED_ASPECTS = {"1:1", "16:9", "9:16", "4:3", "3:4", "16:10", "10:16", "9:21"}
+# Aspect ratios per MiniMax image-01 official docs (read 2026-08-14).
+# Only these 8 values are accepted by the API. Three values we previously had
+# (16:10, 10:16, 9:21) are NOT in the docs and would be rejected.
+SUPPORTED_ASPECTS = {"1:1", "16:9", "9:16", "4:3", "3:2", "2:3", "3:4", "21:9"}
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}
 SUPPORTED_MODELS = ["image-01", "image-01-live"]
+MAX_PROMPT_LENGTH = 1500  # MiniMax API hard limit (status_code: 2013 if exceeded)
 
 
 def _load_key() -> str:
@@ -59,25 +63,33 @@ async def health():
 
 @app.post("/generate")
 async def generate(
-    prompt: str = Form(..., description="Image prompt"),
+    prompt: str = Form(..., description=f"Image prompt (max {MAX_PROMPT_LENGTH} chars)"),
     model: str = Form("image-01", description="Model: image-01 or image-01-live"),
     aspect_ratio: str = Form("16:9", description="Aspect ratio"),
     seed: int | None = Form(None, description="Optional seed for reproducibility"),
     n: int = Form(1, ge=1, le=4, description="Number of images (1-4)"),
-    reference_weight: float | None = Form(None, ge=0.0, le=1.0, description="Reference weight 0-1"),
     reference_images: list[UploadFile] = File(default=[], description="Optional reference images (img2img mode)"),
 ):
     """
     Generate images via MiniMax image-01.
 
     When reference_images are provided the endpoint runs in img2img mode and
-    returns image_urls. Otherwise it runs in text-to-image mode and returns
-    image_base64 (or image_urls when response_format=url is used internally).
+    uses subject_reference[{type, image_file}] (per official MiniMax docs).
+    Only ONE reference image is supported per request.
     """
+    # Validate inputs
     if model not in SUPPORTED_MODELS:
         raise HTTPException(400, f"model must be one of {SUPPORTED_MODELS}")
     if aspect_ratio not in SUPPORTED_ASPECTS:
-        raise HTTPException(400, f"aspect_ratio must be one of {SUPPORTED_ASPECTS}")
+        valid = sorted(SUPPORTED_ASPECTS)
+        raise HTTPException(400, f"aspect_ratio must be one of {valid}, got '{aspect_ratio}'")
+    if not prompt or len(prompt.strip()) == 0:
+        raise HTTPException(400, "prompt is required and cannot be empty")
+    if len(prompt) > MAX_PROMPT_LENGTH:
+        raise HTTPException(
+            400,
+            f"prompt too long: {len(prompt)} chars, max {MAX_PROMPT_LENGTH}"
+        )
 
     api_key = _load_key()
 
@@ -106,8 +118,9 @@ async def generate(
 
     if has_refs:
         # MiniMax API expects subject_reference[] with {type, image_file}
-        # type="character" preserves the person's identity in generated images
-        # Only ONE reference is supported per request
+        # type="character" preserves the person's identity in generated images.
+        # Only ONE reference is supported per request (API returns 2013 otherwise).
+        # NOTE: reference_weight does NOT exist in MiniMax image-01 docs (ignored if sent).
         subject_ref = []
         for b64 in refs_b64[:1]:  # take only the first one (API rejects multiple)
             subject_ref.append({
@@ -115,8 +128,6 @@ async def generate(
                 "image_file": f"data:image/jpeg;base64,{b64}",
             })
         payload["subject_reference"] = subject_ref
-        if reference_weight is not None:
-            payload["reference_weight"] = max(0.0, min(1.0, reference_weight))
         # Force base64 to avoid expiring OSS presigned URLs and CORS issues
         payload["response_format"] = "base64"
     else:
