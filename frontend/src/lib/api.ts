@@ -5,7 +5,6 @@ export interface GenerateOptions {
   seed?: number;
   n?: number;
   references?: File[];
-  referenceWeight?: number;
 }
 
 export interface GenerationResult {
@@ -15,7 +14,7 @@ export interface GenerationResult {
 export async function generateImages(
   opts: GenerateOptions
 ): Promise<GenerationResult> {
-  const { prompt, model = "image-01", aspect_ratio = "16:9", seed, n = 1, references = [], referenceWeight } = opts;
+  const { prompt, model = "image-01", aspect_ratio = "16:9", seed, n = 1, references = [] } = opts;
 
   console.log("[api] generateImages called, references.length:", references.length);
   for (let i = 0; i < references.length; i++) {
@@ -35,9 +34,6 @@ export async function generateImages(
   for (const file of references) {
     console.log("[api] appending file to FormData:", file.name, file.type, file.size);
     form.append("reference_images", file);
-  }
-  if (references.length > 0 && referenceWeight !== undefined) {
-    form.append("reference_weight", String(referenceWeight));
   }
 
   const resp = await fetch("/api/generate", { method: "POST", body: form });

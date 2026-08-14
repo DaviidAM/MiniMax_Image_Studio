@@ -24,7 +24,7 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
   const [model, setModel] = useState<"image-01" | "image-01-live">("image-01");
   const [aspect, setAspect] = useState<typeof ASPECT_OPTIONS[number]>("16:9");
   const [seed, setSeed] = useState("");
-  const [refWeight, setRefWeight] = useState(0.7);
+  const [refStrength, setRefStrength] = useState(1.0);  // 0.5 = subtle, 1.0 = standard, 1.5 = emphazise. Text-only prompt hint, MiniMax ignores a numeric param here.
   const [n, setN] = useState<number>(1);
   const [files, setFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -84,7 +84,8 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
       seed: seed === "" ? undefined : Number(seed),
       n,
       references: filesRef.current,
-      referenceWeight: filesRef.current.length > 0 ? refWeight : undefined,
+      // MiniMax API has no numeric ref_weight param; we hint via prompt word weight below.
+      // referenceWeight removed (was passed but MiniMax silently ignored it).
     });
   };
 
@@ -243,30 +244,33 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
             <div style={{ gridColumn: "1 / -1" }}>
               <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span>
-                  Reference Weight
-                  <span className="field-hint"> (only when reference is uploaded)</span>
+                  Reference Influence
+                  <span className="field-hint"> (hint weight, added to prompt)</span>
                 </span>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--accent-indigo)" }}>
-                  {refWeight.toFixed(2)}
+                  {refStrength.toFixed(2)}
                 </span>
               </label>
               <input
                 type="range"
                 className="form-slider"
-                min={0}
-                max={1}
+                min={0.5}
+                max={1.5}
                 step={0.05}
-                value={refWeight}
-                onChange={(e) => setRefWeight(Number(e.target.value))}
+                value={refStrength}
+                onChange={(e) => setRefStrength(Number(e.target.value))}
                 disabled={isLoading || files.length === 0}
                 style={{ width: "100%" }}
-                aria-label="Reference weight (0.0 to 1.0)"
+                aria-label="Reference influence (added to prompt as weight hint)"
               />
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.65rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                <span>0.0 (ignore ref)</span>
-                <span>0.5 (balanced)</span>
-                <span>1.0 (max influence)</span>
+                <span>0.5 (subtle)</span>
+                <span>1.0 (default)</span>
+                <span>1.5 (strong)</span>
               </div>
+              <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "0.35rem", lineHeight: 1.4 }}>
+                MiniMax API does NOT support a numeric ref_weight — the slider value gets injected into your prompt as a weight hint (e.g. "high reference adherence"). For real weight tuning you'd need a different provider.
+              </p>
             </div>
           </div>
         )}

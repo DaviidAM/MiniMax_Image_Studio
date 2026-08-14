@@ -105,10 +105,16 @@ async def generate(
         payload["seed"] = seed
 
     if has_refs:
-        if len(refs_b64) == 1:
-            payload["reference_image"] = refs_b64[0]
-        else:
-            payload["reference_images"] = refs_b64
+        # MiniMax API expects subject_reference[] with {type, image_file}
+        # type="character" preserves the person's identity in generated images
+        # Only ONE reference is supported per request
+        subject_ref = []
+        for b64 in refs_b64[:1]:  # take only the first one (API rejects multiple)
+            subject_ref.append({
+                "type": "character",
+                "image_file": f"data:image/jpeg;base64,{b64}",
+            })
+        payload["subject_reference"] = subject_ref
         if reference_weight is not None:
             payload["reference_weight"] = max(0.0, min(1.0, reference_weight))
         # Force base64 to avoid expiring OSS presigned URLs and CORS issues
