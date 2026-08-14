@@ -111,6 +111,8 @@ async def generate(
             payload["reference_images"] = refs_b64
         if reference_weight is not None:
             payload["reference_weight"] = max(0.0, min(1.0, reference_weight))
+        # Force base64 to avoid expiring OSS presigned URLs and CORS issues
+        payload["response_format"] = "base64"
     else:
         payload["response_format"] = "base64"
 
@@ -132,19 +134,19 @@ async def generate(
     body = resp.json()
     data = body.get("data", {})
 
-    image_urls = data.get("image_urls")
-    images_b64 = data.get("image_base64")
+    image_urls_list = data.get("image_urls") or []
+    images_b64_list = data.get("image_base64") or []
 
-    if not image_urls and not images_b64:
-        raise HTTPException(500, f"Unexpected API response: {str(body)[:400]}")
+    if not image_urls_list and not images_b64_list:
+        raise HTTPException(502, f"MiniMax returned no images. Full response: {str(data)[:400]}")
 
     result: dict = {"model": model, "aspect_ratio": aspect_ratio, "n": n}
 
     if has_refs:
-        # Fetch image URLs and convert to base64 data URLs to avoid CORS/ expiry issues
-        # when the browser loads them as <img src>.
+        # Convert whatever MiniMax returned into inline data URLs / base64 so the
+        # browser can load them without CORS or expiring-URL issues.
         data_urls: list[str] = []
-        for url in (image_urls or []):
+        for url in image_urls_list:
             try:
                 img_resp = await client.get(url)
                 img_resp.raise_for_status()
@@ -152,10 +154,20 @@ async def generate(
                 mime = img_resp.headers.get("content-type", "image/jpeg")
                 data_urls.append(f"data:{mime};base64,{b64}")
             except Exception:
-                # If fetch fails, pass the raw URL as a fallback (browser will handle CORS)
+                # Last-resort fallback: hand back the raw URL even if fetching fails.
                 data_urls.append(url)
+        # If MiniMax gave us base64 directly, wrap as data URLs.
+        for b64 in images_b64_list:
+            data_urls.append(f"data:image/jpeg;base64,{b64}")
         result["image_urls"] = data_urls
     else:
-        result["image_base64"] = images_b64 or []
+        if images_b64_list:
+            result["image_base64"] = images_b64_list
+        else:
+            # No img2img, no refs: txt2img returns image_base64 OR URL format
+            result["image_base64"] = [
+                url.split(",", 1)[1] if url.startswith("data:") and "," in url else url
+                for url in image_urls_list
+            ]
 
     return result
