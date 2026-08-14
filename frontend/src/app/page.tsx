@@ -15,54 +15,98 @@ export type GenerationStatus =
   | { phase: "success" }
   | { phase: "error"; message: string };
 
+export interface Generation {
+  id: string;
+  imageUrls: string[];
+  prompt: string;
+  referenceFiles: File[];
+  error: string | null;
+  isLoading: boolean;
+  status: GenerationStatus;
+  timestamp: number;
+}
+
 export default function Home() {
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [prompt, setPrompt] = useState("");
-  const [referenceFiles, setReferenceFiles] = useState<File[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState<GenerationStatus>({ phase: "idle" });
+  const [generations, setGenerations] = useState<Generation[]>([]);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-dismiss success toast after 3 seconds
   useEffect(() => {
-    if (status.phase === "success") {
+    const latestGen = generations[0];
+    if (latestGen?.status.phase === "success") {
       successTimerRef.current = setTimeout(() => {
-        setStatus({ phase: "idle" });
+        setGenerations((prev) =>
+          prev.map((g) =>
+            g.id === latestGen.id ? { ...g, status: { phase: "idle" } } : g
+          )
+        );
       }, 3000);
     }
     return () => {
       if (successTimerRef.current) clearTimeout(successTimerRef.current);
     };
-  }, [status.phase]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generations[0]?.status.phase]);
 
   const handleGenerate = async (opts: GenerateOptions) => {
-    setIsLoading(true);
-    setError(null);
-    setPrompt(opts.prompt);
-    setReferenceFiles(opts.references ?? []);
-    setImageUrls([]);
-    setStatus({ phase: "sending" });
+    const id = crypto.randomUUID();
+    const newGen: Generation = {
+      id,
+      imageUrls: [],
+      prompt: opts.prompt,
+      referenceFiles: opts.references ?? [],
+      error: null,
+      isLoading: true,
+      status: { phase: "sending" },
+      timestamp: Date.now(),
+    };
+
+    // Prepend new generation at top, cap at 10
+    setGenerations((prev) => {
+      const next = [newGen, ...prev];
+      return next.slice(0, 10);
+    });
 
     try {
       const result = await generateImages(opts);
-      setStatus({ phase: "processing" });
+      setGenerations((prev) =>
+        prev.map((g) =>
+          g.id === id
+            ? { ...g, status: { phase: "processing" } }
+            : g
+        )
+      );
       // Small delay so user sees "Backend processing" state
       await new Promise((r) => setTimeout(r, 400));
-      setImageUrls(result.imageUrls);
-      setStatus({ phase: "success" });
+      setGenerations((prev) =>
+        prev.map((g) =>
+          g.id === id
+            ? { ...g, imageUrls: result.imageUrls, status: { phase: "success" }, isLoading: false }
+            : g
+        )
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred";
-      setError(message);
-      setStatus({ phase: "error", message });
-    } finally {
-      setIsLoading(false);
+      setGenerations((prev) =>
+        prev.map((g) =>
+          g.id === id
+            ? { ...g, error: message, status: { phase: "error", message }, isLoading: false }
+            : g
+        )
+      );
     }
   };
 
-  const dismissError = () => {
-    setStatus({ phase: "idle" });
-    setError(null);
+  const dismissError = (id: string) => {
+    setGenerations((prev) =>
+      prev.map((g) =>
+        g.id === id ? { ...g, status: { phase: "idle" }, error: null } : g
+      )
+    );
+  };
+
+  const deleteGeneration = (id: string) => {
+    setGenerations((prev) => prev.filter((g) => g.id !== id));
   };
 
   return (
@@ -89,20 +133,16 @@ export default function Home() {
             <h1>Create Image</h1>
           </div>
           <div className="input-panel-body">
-            <InputPanel onGenerate={handleGenerate} isLoading={isLoading} />
+            <InputPanel onGenerate={handleGenerate} isLoading={generations.some((g) => g.isLoading)} />
           </div>
         </aside>
 
         {/* Right: output */}
         <section className="output-panel">
           <OutputPanel
-            imageUrls={imageUrls}
-            prompt={prompt}
-            referenceFiles={referenceFiles}
-            error={error}
-            isLoading={isLoading}
-            status={status}
+            generations={generations}
             onDismissError={dismissError}
+            onDeleteGeneration={deleteGeneration}
           />
         </section>
       </div>

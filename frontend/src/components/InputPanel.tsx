@@ -32,21 +32,27 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Always-refreshed mirror of files to avoid stale closure in doSubmit.
-  // doSubmit is passed as an onClick callback and captures `files` at render time;
-  // a React state update may not be visible inside that closure until the next render.
-  // filesRef.current is always the latest value.
   const filesRef = useRef<File[]>([]);
   filesRef.current = files;
 
   const hasError = touched && !prompt.trim();
 
   const handleFiles = useCallback((incoming: FileList | null) => {
+    console.log("[InputPanel] handleFiles called, incoming:", incoming?.length ?? "null");
     if (!incoming) return;
     const imageTypes = ["image/jpeg", "image/png", "image/webp", "image/bmp", "image/gif"];
     // Snapshot FileList immediately to avoid stale-reference issues with live FileList
-    const valid = Array.from(incoming).filter((f) => imageTypes.includes(f.type));
+    const valid = Array.from(incoming).filter((f) => {
+      const ok = imageTypes.includes(f.type);
+      console.log(`[InputPanel] file: ${f.name}, type: ${f.type}, ok: ${ok}`);
+      return ok;
+    });
+    console.log("[InputPanel] valid files:", valid.length);
     if (valid.length > 0) {
-      setFiles((prev) => [...prev, ...valid]);
+      setFiles((prev) => {
+        console.log("[InputPanel] setFiles, prev.length:", prev.length, "new total:", prev.length + valid.length);
+        return [...prev, ...valid];
+      });
       // Reset the hidden input value so the same file can be selected again
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -66,8 +72,10 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
   };
 
   const doSubmit = () => {
+    console.log("[InputPanel] doSubmit called, filesRef.current.length:", filesRef.current.length);
     setTouched(true);
     if (!prompt.trim()) return;
+    console.log("[InputPanel] calling onGenerate with references:", filesRef.current.length, "files");
     onGenerate({
       prompt: prompt.trim(),
       model,
@@ -251,7 +259,10 @@ export default function InputPanel({ onGenerate, isLoading }: Props) {
         accept="image/*"
         multiple
         style={{ position: "absolute", left: "-9999px" }}
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(e) => {
+          console.log("[InputPanel] onChange fired, files:", e.target.files?.length ?? "null");
+          handleFiles(e.target.files);
+        }}
         disabled={isLoading}
       />
     </>

@@ -16,6 +16,12 @@ export async function generateImages(
 ): Promise<GenerationResult> {
   const { prompt, model = "image-01", aspect_ratio = "16:9", seed, n = 1, references = [] } = opts;
 
+  console.log("[api] generateImages called, references.length:", references.length);
+  for (let i = 0; i < references.length; i++) {
+    const f = references[i];
+    console.log(`[api] references[${i}]: name=${f.name}, type=${f.type}, size=${f.size}`);
+  }
+
   // Backend only accepts multipart/form-data. Always use FormData.
   const form = new FormData();
   form.append("prompt", prompt);
@@ -26,6 +32,7 @@ export async function generateImages(
     form.append("seed", String(seed));
   }
   for (const file of references) {
+    console.log("[api] appending file to FormData:", file.name, file.type, file.size);
     form.append("reference_images", file);
   }
 
