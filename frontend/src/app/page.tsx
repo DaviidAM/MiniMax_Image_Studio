@@ -67,8 +67,28 @@ export default function Home() {
       return next.slice(0, 10);
     });
 
+    // Safety net: if anything goes wrong (timeout, network error, etc.),
+    // ALWAYS clear the loading state on this generation after 200s.
+    const safetyTimeout = setTimeout(() => {
+      setGenerations((prev) =>
+        prev.map((g) =>
+          g.id === id && g.isLoading
+            ? {
+                ...g,
+                isLoading: false,
+                error: g.error || "Generation timed out",
+                status: g.status.phase === "idle" || g.status.phase === "success"
+                  ? g.status
+                  : { phase: "error", message: "Generation timed out" },
+              }
+            : g
+        )
+      );
+    }, 200000);
+
     try {
       const result = await generateImages(opts);
+      clearTimeout(safetyTimeout);
       setGenerations((prev) =>
         prev.map((g) =>
           g.id === id
@@ -86,6 +106,7 @@ export default function Home() {
         )
       );
     } catch (err) {
+      clearTimeout(safetyTimeout);
       const message = err instanceof Error ? err.message : "An unexpected error occurred";
       setGenerations((prev) =>
         prev.map((g) =>

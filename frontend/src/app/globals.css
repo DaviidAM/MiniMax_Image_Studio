@@ -426,6 +426,7 @@ body::before {
   border-radius: var(--radius-lg);
   overflow: hidden;
   aspect-ratio: 16/9;
+  width: 100%;
 }
 
 .skeleton {
@@ -459,12 +460,18 @@ body::before {
 
 /* ── Gallery ────────────────────────────────────────── */
 .gallery-grid {
+  display: block;
+  padding: 0.5rem 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.gallery-grid.single,
+.gallery-grid.multi {
   display: grid;
-  gap: 1rem;
-  padding: 1.25rem;
-  overflow-y: auto;
-  flex: 1;
-  align-content: start;
+  gap: 0.75rem;
 }
 
 .gallery-grid.single { grid-template-columns: 1fr; }
@@ -472,13 +479,16 @@ body::before {
 
 .gallery-card {
   position: relative;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  aspect-ratio: 16/9;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16/9;
+  box-sizing: border-box;
 }
 
 .gallery-card:hover {
@@ -487,10 +497,12 @@ body::before {
 }
 
 .gallery-card img {
+  display: block;
   width: 100%;
   height: auto;
-  display: block;
-  object-fit: cover;
+  max-height: 100%;
+  object-fit: contain;
+  background: rgba(0,0,0,0.2);
 }
 
 .gallery-overlay {
@@ -567,16 +579,25 @@ body::before {
 .generations-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--glass-border) transparent;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .generation-row {
   border-bottom: 1px solid var(--glass-border);
   animation: slideIn 0.25s ease-out;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 @keyframes slideIn {
@@ -670,6 +691,10 @@ body::before {
 
 .generation-body {
   padding: 0.875rem 1.25rem 1rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .generations-list .gallery-grid {
